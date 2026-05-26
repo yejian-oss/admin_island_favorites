@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>즐겨찾기 빠른 추가 — 인터랙션 프로토타입</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Pretendard', -apple-system, sans-serif; background: #f0f0ed; min-height: 100vh; }
+
+/* 상단 헤더 */
+.proto-header { background: #1e1e1e; padding: 12px 24px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 200; }
+.proto-title { font-size: 13px; font-weight: 600; color: #f5c518; letter-spacing: -0.3px; }
+.proto-badge { font-size: 10px; background: #333; color: #aaa; border-radius: 4px; padding: 3px 8px; }
+
+/* 케이스 패널 */
+.case-panel { background: #eeedfe; border-bottom: 1px solid #d0cdf5; padding: 10px 24px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; position: sticky; top: 41px; z-index: 190; }
+.case-panel-label { font-size: 10px; font-weight: 600; color: #534ab7; white-space: nowrap; }
+.case-btns { display: flex; gap: 5px; flex-wrap: wrap; }
+.case-btn { font-size: 10px; padding: 4px 11px; border: 1px solid #afa9ec; background: #fff; border-radius: 20px; cursor: pointer; color: #534ab7; font-family: 'Pretendard', sans-serif; transition: all 0.12s; white-space: nowrap; }
+.case-btn:hover { background: #eeedfe; }
+.case-btn.active { background: #534ab7; color: #fff; border-color: #534ab7; }
+
+/* 앱 레이아웃 */
+.app-wrap { display: flex; min-height: calc(100vh - 88px); }
+.sidebar { width: 160px; background: #1e1e1e; flex-shrink: 0; padding: 14px 0; position: sticky; top: 88px; height: calc(100vh - 88px); overflow-y: auto; }
+.sidebar-logo { color: #f5c518; font-size: 13px; font-weight: 700; padding: 0 14px 14px; letter-spacing: -0.3px; }
+.sidebar-section { font-size: 10px; color: #555; padding: 4px 14px 2px; font-weight: 500; margin-top: 4px; }
+.sidebar-item { font-size: 11px; color: #999; padding: 6px 14px; cursor: pointer; transition: color 0.1s; }
+.sidebar-item:hover { color: #ddd; }
+.sidebar-item.active { background: #f5c518; color: #1e1e1e; font-weight: 600; margin: 1px 8px; border-radius: 5px; padding: 6px 6px; }
+.sidebar-item.parent { color: #f5c518; font-weight: 500; }
+
+/* 메인 */
+.main { flex: 1; padding: 0; background: #f5f5f2; }
+.topbar { background: #fff; border-bottom: 1px solid #eee; padding: 8px 24px; font-size: 11px; color: #aaa; display: flex; justify-content: space-between; align-items: center; }
+.topbar-right { color: #534ab7; font-size: 10px; cursor: pointer; }
+.page-title { font-size: 22px; font-weight: 700; color: #1a1a1a; padding: 20px 24px 14px; letter-spacing: -0.5px; }
+.section-title { font-size: 13px; font-weight: 600; color: #333; padding: 0 24px 10px; letter-spacing: -0.3px; }
+
+/* 기본정보 테이블 */
+.info-table { margin: 0 24px 16px; border: 1px solid #e8e8e8; border-radius: 8px; overflow: hidden; font-size: 12px; background: #fff; }
+.info-row { display: grid; grid-template-columns: 110px 1fr 110px 1fr; border-bottom: 1px solid #f0f0f0; }
+.info-row:last-child { border-bottom: none; }
+.info-label { background: #fafafa; padding: 9px 12px; color: #666; font-weight: 600; font-size: 11px; }
+.info-value { padding: 9px 12px; color: #222; font-size: 11px; }
+.info-value.link { color: #534ab7; cursor: pointer; }
+
+/* 버튼 */
+.btn-row { display: flex; gap: 8px; justify-content: center; padding: 12px 24px 18px; }
+.btn-save { background: #f5c518; border: none; border-radius: 7px; padding: 8px 24px; font-size: 13px; font-weight: 700; cursor: pointer; font-family: 'Pretendard', sans-serif; letter-spacing: -0.3px; }
+.btn-cancel { background: #e53935; border: none; border-radius: 7px; padding: 8px 24px; font-size: 13px; font-weight: 700; color: #fff; cursor: pointer; font-family: 'Pretendard', sans-serif; letter-spacing: -0.3px; }
+
+/* 주문 영역 */
+.order-section { margin: 0 24px 24px; display: grid; grid-template-columns: 1fr 220px; gap: 12px; }
+.order-card { border: 1px solid #e8e8e8; border-radius: 8px; overflow: hidden; background: #fff; }
+.order-header { background: #f7f7f7; padding: 7px 12px; font-size: 11px; font-weight: 600; color: #666; text-align: center; border-bottom: 1px solid #f0f0f0; }
+.order-col-header { display: grid; grid-template-columns: 1fr 56px 38px 72px; padding: 5px 12px; border-bottom: 1px solid #f0f0f0; font-size: 10px; color: #aaa; font-weight: 500; }
+.order-row-item { display: grid; grid-template-columns: 1fr 56px 38px 72px; padding: 7px 12px; border-bottom: 1px solid #f9f9f9; font-size: 11px; color: #222; align-items: center; }
+.order-row-item.muted { color: #bbb; }
+.order-section-label { padding: 5px 12px; font-size: 10px; font-weight: 600; color: #aaa; background: #fafafa; border-bottom: 1px solid #f0f0f0; border-top: 1px solid #f0f0f0; }
+.stepper { display: flex; align-items: center; gap: 3px; }
+.stepper button { width: 18px; height: 18px; border: 1px solid #e0e0e0; background: #f5f5f5; border-radius: 3px; font-size: 12px; cursor: pointer; font-family: 'Pretendard', sans-serif; color: #444; display: flex; align-items: center; justify-content: center; }
+.stepper span { font-size: 11px; min-width: 14px; text-align: center; }
+
+/* 즐겨찾기 그리드 */
+.fav-grid-wrap { margin: 6px 8px 0; padding: 6px 0 6px; }
+.fav-grid-label { display: none; }
+.fav-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; }
+.fav-btn { display: flex; flex-direction: column; align-items: flex-start; padding: 7px 8px; background: #f7f7f7; border: 1px solid #ebebeb; border-radius: 7px; cursor: pointer; gap: 2px; transition: all 0.12s; min-height: 40px; justify-content: center; font-family: 'Pretendard', sans-serif; width: 100%; text-align: left; }
+.fav-btn:hover:not(:disabled) { border-color: #afa9ec; background: #eeedfe; }
+.fav-btn:active:not(:disabled) { transform: scale(0.97); }
+.fav-btn.is-added { opacity: 0.45; cursor: not-allowed; background: #f5f5f5; }
+.fav-btn.is-soldout { opacity: 0.4; cursor: pointer; }
+.fav-btn-name { font-size: 10px; font-weight: 600; color: #222; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; letter-spacing: -0.2px; }
+.fav-btn-price { font-size: 9px; color: #888; letter-spacing: -0.1px; }
+.fav-btn-price.disc { color: #854f0b; }
+.fav-placeholder { min-height: 40px; border: 1px dashed #e8e8e8; border-radius: 7px; background: transparent; }
+.fav-empty { font-size: 11px; color: #aaa; text-align: center; padding: 14px 8px; line-height: 1.6; letter-spacing: -0.2px; }
+.sold-out-badge { font-size: 8px; background: #fdecea; color: #c0392b; border-radius: 3px; padding: 1px 4px; margin-left: 3px; font-weight: 500; }
+.added-badge { font-size: 8px; background: #e8f5e9; color: #0f6e56; border-radius: 3px; padding: 1px 4px; margin-left: 3px; font-weight: 500; }
+
+.order-add-btn { display: flex; align-items: center; justify-content: center; font-size: 12px; color: #888; border: 1px solid #e8e8e8; border-radius: 7px; padding: 8px 12px; margin: 8px 8px 6px; cursor: pointer; background: transparent; font-family: 'Pretendard', sans-serif; transition: background 0.1s; width: calc(100% - 16px); }
+.order-add-btn:hover { background: #f5f5f5; }
+.total-row { display: flex; justify-content: space-between; padding: 10px 12px; font-size: 13px; font-weight: 700; border-top: 1px solid #f0f0f0; color: #1a1a1a; letter-spacing: -0.3px; }
+
+/* 결제 카드 */
+.pay-card { border: 1px solid #e8e8e8; border-radius: 8px; overflow: hidden; background: #fff; font-size: 11px; }
+.pay-header { background: #f7f7f7; padding: 7px 12px; font-size: 11px; font-weight: 600; color: #666; border-bottom: 1px solid #f0f0f0; display: flex; justify-content: space-between; }
+.pay-col { display: grid; grid-template-columns: 1fr 1fr; padding: 5px 12px; border-bottom: 1px solid #f0f0f0; font-size: 10px; color: #aaa; }
+.pay-empty { height: 60px; }
+.pay-add-btn { display: flex; align-items: center; justify-content: center; font-size: 11px; color: #888; padding: 8px; cursor: pointer; border-top: 1px solid #f0f0f0; font-family: 'Pretendard', sans-serif; }
+.pay-total { display: flex; justify-content: space-between; padding: 7px 12px; font-size: 11px; font-weight: 600; border-top: 1px solid #f0f0f0; }
+.pay-remain { display: flex; justify-content: space-between; padding: 7px 12px; font-size: 11px; font-weight: 600; color: #c0392b; border-top: 1px solid #f0f0f0; }
+.btn-exit { background: #534ab7; border: none; border-radius: 7px; padding: 9px 20px; font-size: 13px; font-weight: 700; color: #fff; cursor: pointer; font-family: 'Pretendard', sans-serif; width: 100%; margin-top: 8px; letter-spacing: -0.3px; }
+
+/* 모달 */
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 500; }
+.modal-box { background: #fff; border-radius: 12px; width: 660px; max-height: 88vh; overflow-y: auto; padding: 28px; box-shadow: 0 12px 40px rgba(0,0,0,0.2); }
+.modal-title { font-size: 18px; font-weight: 700; color: #1a1a1a; margin-bottom: 20px; letter-spacing: -0.5px; }
+.modal-filter-table { border: 1px solid #e8e8e8; border-radius: 8px; overflow: hidden; margin-bottom: 14px; }
+.modal-filter-row { display: grid; grid-template-columns: 90px 1fr; border-bottom: 1px solid #f0f0f0; }
+.modal-filter-row:last-child { border-bottom: none; }
+.modal-filter-label { background: #fafafa; padding: 11px 14px; font-weight: 600; color: #444; font-size: 12px; display: flex; align-items: center; }
+.modal-filter-val { padding: 11px 14px; display: flex; align-items: center; gap: 14px; font-size: 12px; }
+.modal-filter-val label { display: flex; align-items: center; gap: 5px; cursor: pointer; color: #333; }
+.modal-search-btn { background: #f5c518; border: none; border-radius: 7px; padding: 9px 32px; font-size: 13px; font-weight: 700; cursor: pointer; display: block; margin: 0 auto 16px; font-family: 'Pretendard', sans-serif; letter-spacing: -0.3px; }
+.modal-list-header { display: grid; grid-template-columns: 32px 60px 52px 1fr 78px 72px 52px; gap: 4px; padding: 6px 10px; background: #f5f5f5; border: 1px solid #e8e8e8; border-bottom: none; border-radius: 7px 7px 0 0; font-size: 10px; color: #888; font-weight: 600; }
+.modal-list { border: 1px solid #e8e8e8; border-radius: 0 0 7px 7px; overflow: hidden; }
+.modal-list-row { display: grid; grid-template-columns: 32px 60px 52px 1fr 78px 72px 52px; gap: 4px; padding: 9px 10px; border-bottom: 1px solid #f5f5f5; font-size: 11px; color: #222; align-items: center; transition: background 0.1s; }
+.modal-list-row:last-child { border-bottom: none; }
+.modal-list-row:hover { background: #fafafa; }
+.star-btn { font-size: 19px; cursor: pointer; background: none; border: none; padding: 0 3px; line-height: 1; transition: transform 0.12s; font-family: 'Pretendard', sans-serif; }
+.star-btn:hover:not(.disabled) { transform: scale(1.25); }
+.star-btn.on { color: #f5c518; }
+.star-btn.off { color: #ddd; }
+.star-btn.disabled { color: #e0e0e0; cursor: not-allowed; pointer-events: none; }
+.modal-checkbox { width: 14px; height: 14px; cursor: pointer; accent-color: #f5c518; }
+.modal-footer { display: flex; justify-content: center; gap: 10px; margin-top: 20px; border-top: 1px solid #f0f0f0; padding-top: 18px; }
+.btn-modal-close { border: 1px solid #e0e0e0; background: #fff; border-radius: 7px; padding: 8px 26px; font-size: 13px; cursor: pointer; color: #444; font-family: 'Pretendard', sans-serif; font-weight: 500; letter-spacing: -0.3px; }
+.btn-modal-add { background: #f5c518; border: none; border-radius: 7px; padding: 8px 26px; font-size: 13px; font-weight: 700; cursor: pointer; font-family: 'Pretendard', sans-serif; letter-spacing: -0.3px; }
+.btn-modal-add:disabled { opacity: 0.35; cursor: not-allowed; }
+.modal-pagination { display: flex; justify-content: center; align-items: center; gap: 6px; padding: 12px 0 0; }
+.page-num { width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; border-radius: 50%; cursor: pointer; font-size: 11px; color: #888; font-family: 'Pretendard', sans-serif; }
+.page-num.on { background: #f5c518; color: #1e1e1e; font-weight: 700; }
+.page-arrow { font-size: 13px; color: #aaa; cursor: pointer; }
+
+/* 스낵바 */
+.snackbar { position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%); border-radius: 10px; padding: 11px 18px; font-size: 12px; display: flex; align-items: flex-start; gap: 9px; z-index: 999; min-width: 250px; opacity: 0; transition: opacity 0.2s, transform 0.2s; pointer-events: none; box-shadow: 0 4px 20px rgba(0,0,0,0.14); transform: translateX(-50%) translateY(8px); font-family: 'Pretendard', sans-serif; }
+.snackbar.show { opacity: 1; pointer-events: auto; transform: translateX(-50%) translateY(0); }
+.snackbar.success { background: #f0faf4; color: #0f6e56; border: 1px solid #a5d6a7; }
+.snackbar.error { background: #fef2f2; color: #7f1d1d; border: 1px solid #fca5a5; }
+.snackbar-icon { font-size: 14px; flex-shrink: 0; margin-top: 1px; }
+.snackbar-main { font-weight: 600; letter-spacing: -0.2px; font-size: 12px; }
+.snackbar-sub { font-size: 11px; margin-top: 3px; opacity: 0.75; letter-spacing: -0.2px; }
+
+input[type="checkbox"] { accent-color: #f5c518; }
+</style>
+</head>
+<body>
+
+<div class="proto-header">
+  <div class="proto-title">⭐ 즐겨찾기 빠른 추가 — 인터랙션 프로토타입</div>
+  <div class="proto-badge">개발팀 공유용 · 디자인 검토용</div>
+</div>
+
+<div class="case-panel">
+  <div class="case-panel-label">🧪 테스트 케이스</div>
+  <div class="case-btns">
+    <button class="case-btn active" onclick="setCase('default',this)">기본 (즐겨찾기 4개)</button>
+    <button class="case-btn" onclick="setCase('one',this)">즐겨찾기 1개 — 1행만</button>
+    <button class="case-btn" onclick="setCase('full',this)">즐겨찾기 6개 — 가득 참</button>
+    <button class="case-btn" onclick="setCase('added',this)">이미 주문에 추가된 항목</button>
+  </div>
+</div>
+
+<div id="modal-overlay" class="modal-overlay" style="display:none;">
+  <div class="modal-box">
+    <div class="modal-title">주문 상품 추가</div>
+    <div class="modal-filter-table">
+      <div class="modal-filter-row">
+        <div class="modal-filter-label">구분</div>
+        <div class="modal-filter-val">
+          <label><input type="checkbox" checked> 일반</label>
+          <label><input type="checkbox" checked> 티켓</label>
+        </div>
+      </div>
+      <div class="modal-filter-row">
+        <div class="modal-filter-label">상품명</div>
+        <div class="modal-filter-val" style="padding:8px 14px;"><input style="width:100%;font-size:12px;padding:6px 10px;border:1px solid #e0e0e0;border-radius:6px;font-family:'Pretendard',sans-serif;" placeholder="검색어를 입력해주세요."></div>
+      </div>
+    </div>
+    <button class="modal-search-btn">조회</button>
+    <div class="modal-list-header">
+      <span>선택</span><span>id</span><span>구분</span><span>이름</span><span style="text-align:right">가격</span><span>등록일</span><span style="text-align:center">즐겨찾기</span>
+    </div>
+    <div class="modal-list" id="modal-list"></div>
+    <div class="modal-pagination" id="modal-pagination"></div>
+    <div class="modal-footer">
+      <button class="btn-modal-close" onclick="closeModal()">닫기</button>
+      <button class="btn-modal-add" id="modal-add-btn" onclick="addSelectedItems()" disabled>추가하기</button>
+    </div>
+  </div>
+</div>
+
+<div id="snackbar" class="snackbar">
+  <span class="snackbar-icon" id="snackbar-icon"></span>
+  <div>
+    <div class="snackbar-main" id="snackbar-main"></div>
+    <div class="snackbar-sub" id="snackbar-sub"></div>
+  </div>
+</div>
+
+<div class="app-wrap">
+  <div class="sidebar">
+    <div class="sidebar-logo">째깍악어</div>
+    <div class="sidebar-item">매칭</div>
+    <div class="sidebar-item">회원</div>
+    <div class="sidebar-item">교육</div>
+    <div class="sidebar-item parent">째깍섬</div>
+    <div class="sidebar-item active">입퇴장 상세</div>
+    <div class="sidebar-item">예약 관리</div>
+    <div class="sidebar-item">대기 관리</div>
+    <div class="sidebar-item">주문/결제 관리</div>
+    <div class="sidebar-item">상품 관리</div>
+    <div class="sidebar-item">센터 설정</div>
+  </div>
+
+  <div class="main">
+    <div class="topbar">
+      <span>Home > 째깍섬 > 입장 > <strong>입퇴장 상세</strong></span>
+      <span class="topbar-right">어드민 > 째깍섬 > 입퇴장 상세 > 구매/할인 추가</span>
+    </div>
+
+    <div class="page-title">입퇴장 상세</div>
+
+    <div class="section-title">기본 정보</div>
+    <div class="info-table">
+      <div class="info-row">
+        <div class="info-label">입장 ID</div><div class="info-value">522</div>
+        <div class="info-label">보호자 정보</div><div class="info-value link">안에지 (12345 / 01082862386)</div>
+      </div>
+      <div class="info-row">
+        <div class="info-label">사용 가능 캐시</div><div class="info-value">50,000 캐시</div>
+        <div class="info-label">사용 가능 포인트</div><div class="info-value">50,000 포인트</div>
+      </div>
+      <div class="info-row">
+        <div class="info-label">입장 센터</div><div class="info-value">네버랜드 센터</div>
+        <div class="info-label">입장 상태</div><div class="info-value">체크인</div>
+      </div>
+      <div class="info-row">
+        <div class="info-label">입장 일시</div><div class="info-value">2026-02-24 18:24</div>
+        <div class="info-label">입장 옵션</div>
+        <div class="info-value" style="display:flex;gap:10px;align-items:center;">
+          <label style="display:flex;align-items:center;gap:4px;font-size:11px;cursor:pointer;"><input type="checkbox" checked> 음료</label>
+          <label style="display:flex;align-items:center;gap:4px;font-size:11px;cursor:pointer;"><input type="checkbox" checked> 간식</label>
+          <label style="display:flex;align-items:center;gap:4px;font-size:11px;cursor:pointer;"><input type="checkbox"> 놀이키트</label>
+          <label style="display:flex;align-items:center;gap:4px;font-size:11px;cursor:pointer;"><input type="checkbox"> 여벌옷</label>
+        </div>
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn-save">저장</button>
+      <button class="btn-cancel">입장 취소</button>
+    </div>
+
+    <div class="section-title">입장 및 주문 내역</div>
+    <div class="order-section">
+      <div class="order-card">
+        <div class="order-header">주문</div>
+        <div class="order-col-header"><span>상품</span><span>입장자</span><span>수량</span><span style="text-align:right">금액</span></div>
+        <div class="order-row-item muted"><span>11:00 도시농부</span><span>이안</span><span>2</span><span style="text-align:right;font-size:10px;">미진행</span></div>
+        <div class="order-row-item"><span>12:00 드로잉</span><span>이안</span><span>1</span><span style="text-align:right">25,000원</span></div>
+        <div class="order-row-item"><span>놀이터 기본요금</span><span>이안</span><span>1</span><span style="text-align:right">33,000원</span></div>
+        <div class="order-section-label">그 외 주문</div>
+        <div class="order-row-item">
+          <span>뽀로로 음료(복숭아)</span><span></span>
+          <div class="stepper"><button>−</button><span>1</span><button>+</button></div>
+          <span style="text-align:right">2,000원</span>
+        </div>
+        <div id="added-items-list"></div>
+
+        <div class="fav-grid-wrap">
+          <div class="fav-grid-label">⭐ 즐겨찾기</div>
+          <div class="fav-grid" id="fav-grid"></div>
+        </div>
+
+        <button class="order-add-btn" onclick="openModal()">+ 구매/할인 추가</button>
+        <div class="total-row"><span>총 주문 금액</span><span id="total-amount">80,000원</span></div>
+      </div>
+
+      <div>
+        <div class="pay-card">
+          <div class="pay-header"><span>결제</span></div>
+          <div class="pay-col"><span>내역</span><span style="text-align:right">금액</span></div>
+          <div class="pay-empty"></div>
+          <div class="pay-add-btn">+ 결제 추가</div>
+          <div class="pay-total"><span>총 결제 금액</span><span>0원</span></div>
+          <div class="pay-remain"><span>남은 결제액</span><span>8,500원</span></div>
+        </div>
+        <button class="btn-exit">퇴장</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const ALL_ITEMS = [
+  { id: 34465, type: '일반', name: '새우볶음밥', price: 10000, date: '2024-08-15', soldOut: false },
+  { id: 35666, type: '티켓', name: '보호자 티켓', price: 5000, date: '2024-08-15', soldOut: false },
+  { id: 15677, type: '티켓', name: '[째깍섬] 오스모 코딩 1회 무료(체험단)', price: -35000, date: '2024-08-15', soldOut: false },
+  { id: 12314, type: '티켓', name: '[바운스] 20% 할인 (타 센터 정기권)', price: -5100, date: '2024-08-15', soldOut: false },
+  { id: 12345, type: '티켓', name: '[바운스] 2시간 무료 이용권', price: -25500, date: '2024-08-15', soldOut: false },
+  { id: 22001, type: '일반', name: '뽀로로 딸기음료', price: 2000, date: '2024-09-01', soldOut: false },
+  { id: 22002, type: '일반', name: '양말 1켤레', price: 1000, date: '2024-09-01', soldOut: false },
+  { id: 22003, type: '티켓', name: '[째깍섬] 프로그램 리뷰 이용권', price: -2500, date: '2024-09-10', soldOut: false },
+];
+const PAGE_SIZE = 5;
+let currentPage = 1;
+
+const CASES = {
+  default: [
+    { id: 12314, name: '[바운스] 20% 할인', price: '-5,100원', soldOut: false },
+    { id: 35666, name: '보호자 티켓', price: '5,000원', soldOut: false },
+    { id: 12345, name: '[바운스] 2시간 무료', price: '-25,500원', soldOut: false },
+    { id: 34465, name: '새우볶음밥', price: '10,000원', soldOut: false },
+  ],
+  one: [{ id: 35666, name: '보호자 티켓', price: '5,000원', soldOut: false }],
+  full: [
+    { id: 12314, name: '[바운스] 20% 할인', price: '-5,100원', soldOut: false },
+    { id: 35666, name: '보호자 티켓', price: '5,000원', soldOut: false },
+    { id: 12345, name: '[바운스] 2시간 무료', price: '-25,500원', soldOut: false },
+    { id: 34465, name: '새우볶음밥', price: '10,000원', soldOut: false },
+    { id: 22001, name: '뽀로로 딸기음료', price: '2,000원', soldOut: false },
+    { id: 22002, name: '양말 1켤레', price: '1,000원', soldOut: false },
+  ],
+  added: [
+    { id: 12314, name: '[바운스] 20% 할인', price: '-5,100원', soldOut: false },
+    { id: 35666, name: '보호자 티켓', price: '5,000원', soldOut: false },
+    { id: 12345, name: '[바운스] 2시간 무료', price: '-25,500원', soldOut: false },
+    { id: 34465, name: '새우볶음밥', price: '10,000원', soldOut: false },
+  ],
+};
+
+let currentCase = 'default';
+let favItems = [...CASES.default];
+let favIds = favItems.map(f => f.id);
+let addedToOrder = [];
+let selectedInModal = [];
+let snackTimer = null;
+
+function setCase(c, btn) {
+  currentCase = c;
+  favItems = [...CASES[c]];
+  favIds = favItems.map(f => f.id);
+  addedToOrder = c === 'added' ? [12345] : [];
+  itemQty = {};
+  document.querySelectorAll('.case-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderGrid();
+  renderAddedItems();
+}
+
+function renderGrid() {
+  const grid = document.getElementById('fav-grid');
+  grid.innerHTML = '';
+  grid.style.display = 'grid';
+  const rows = favItems.length <= 3 ? 1 : 2;
+  const slots = rows * 3;
+  for (let i = 0; i < slots; i++) {
+    const item = favItems[i];
+    if (!item) {
+      const ph = document.createElement('div');
+      ph.className = 'fav-placeholder';
+      grid.appendChild(ph);
+      continue;
+    }
+    const isAdded = addedToOrder.includes(item.id);
+    const btn = document.createElement('button');
+    btn.className = 'fav-btn' + (isAdded ? ' is-added' : '');
+    btn.innerHTML = `<span class="fav-btn-name">${item.name}</span><span class="fav-btn-price${item.price.includes('-') ? ' disc' : ''}">${item.price}</span>`;
+    if (!isAdded) btn.onclick = () => addFromGrid(item);
+    grid.appendChild(btn);
+  }
+}
+
+function addFromGrid(item) {
+  addedToOrder.push(item.id);
+  showSnack('success', '주문에 추가되었어요.', '');
+  renderGrid();
+  renderAddedItems();
+}
+
+let itemQty = {};
+
+function renderAddedItems() {
+  const el = document.getElementById('added-items-list');
+  el.innerHTML = '';
+  const baseAdded = currentCase === 'added' ? [{ id: 12345, name: '[바운스] 2시간 무료', price: '-25,500원' }] : [];
+  const dynamicAdded = addedToOrder
+    .filter(id => !(currentCase === 'added' && id === 12345))
+    .map(id => favItems.find(f => f.id === id))
+    .filter(Boolean);
+  [...baseAdded, ...dynamicAdded].forEach(item => {
+    if (!itemQty[item.id]) itemQty[item.id] = 1;
+    const qty = itemQty[item.id];
+    const row = document.createElement('div');
+    row.className = 'order-row-item';
+    row.innerHTML = `
+      <span>${item.name}</span>
+      <span></span>
+      <div class="stepper">
+        <button onclick="changeQty(${item.id}, -1)">−</button>
+        <span id="qty-${item.id}">${qty}</span>
+        <button onclick="changeQty(${item.id}, 1)">+</button>
+      </div>
+      <span style="text-align:right">${item.price}</span>`;
+    el.appendChild(row);
+  });
+}
+
+function changeQty(id, delta) {
+  if (!itemQty[id]) itemQty[id] = 1;
+  itemQty[id] = Math.max(1, itemQty[id] + delta);
+  const el = document.getElementById('qty-' + id);
+  if (el) el.textContent = itemQty[id];
+}
+
+function openModal() {
+  selectedInModal = [];
+  currentPage = 1;
+  document.getElementById('modal-add-btn').disabled = true;
+  renderModalList();
+  document.getElementById('modal-overlay').style.display = 'flex';
+}
+
+function closeModal() {
+  document.getElementById('modal-overlay').style.display = 'none';
+  renderGrid();
+}
+
+function renderModalList() {
+  const list = document.getElementById('modal-list');
+  list.innerHTML = '';
+  const start = (currentPage - 1) * PAGE_SIZE;
+  const pageItems = ALL_ITEMS.slice(start, start + PAGE_SIZE);
+  pageItems.forEach(item => {
+    const isFav = favIds.includes(item.id);
+    const canAddFav = favIds.length < 6 || isFav;
+    const row = document.createElement('div');
+    row.className = 'modal-list-row';
+    const priceStr = item.price.toLocaleString() + '원';
+    row.innerHTML = `
+      <input type="checkbox" class="modal-checkbox" onchange="toggleSelect(${item.id}, this)" ${selectedInModal.includes(item.id) ? 'checked' : ''}>
+      <span style="color:#aaa;font-size:10px">${item.id}</span>
+      <span style="color:#888">${item.type}</span>
+      <span style="letter-spacing:-0.2px">${item.name}</span>
+      <span style="text-align:right;color:${item.price < 0 ? '#854f0b' : '#222'}">${priceStr}</span>
+      <span style="color:#aaa;font-size:10px">${item.date}</span>
+      <span style="text-align:center">
+        <button class="star-btn ${isFav ? 'on' : 'off'}" onclick="toggleFav(${item.id})">${isFav ? '★' : '☆'}</button>
+      </span>`;
+    list.appendChild(row);
+  });
+  renderPagination();
+}
+
+function renderPagination() {
+  const totalPages = Math.ceil(ALL_ITEMS.length / PAGE_SIZE);
+  const container = document.getElementById('modal-pagination');
+  container.innerHTML = '';
+  const prev = document.createElement('span');
+  prev.className = 'page-arrow';
+  prev.textContent = '‹';
+  prev.onclick = () => { if (currentPage > 1) { currentPage--; renderModalList(); } };
+  container.appendChild(prev);
+  for (let i = 1; i <= totalPages; i++) {
+    const num = document.createElement('span');
+    num.className = 'page-num' + (i === currentPage ? ' on' : '');
+    num.textContent = i;
+    num.onclick = ((p) => () => { currentPage = p; renderModalList(); })(i);
+    container.appendChild(num);
+  }
+  const next = document.createElement('span');
+  next.className = 'page-arrow';
+  next.textContent = '›';
+  next.onclick = () => { if (currentPage < totalPages) { currentPage++; renderModalList(); } };
+  container.appendChild(next);
+}
+
+function toggleSelect(id, cb) {
+  if (cb.checked) selectedInModal.push(id);
+  else selectedInModal = selectedInModal.filter(i => i !== id);
+  document.getElementById('modal-add-btn').disabled = selectedInModal.length === 0;
+}
+
+function toggleFav(id) {
+  const isFav = favIds.includes(id);
+  if (!isFav && favIds.length >= 6) {
+    showSnack('error', '즐겨찾기는 최대 6개까지 가능합니다.', '');
+    return;
+  }
+  if (isFav) {
+    favIds = favIds.filter(i => i !== id);
+    favItems = favItems.filter(f => f.id !== id);
+    showSnack('success', '즐겨찾기에서 해제되었어요.', '');
+  } else {
+    const item = ALL_ITEMS.find(i => i.id === id);
+    favIds.push(id);
+    favItems.push({ id: item.id, name: item.name, price: item.price.toLocaleString() + '원', soldOut: false });
+    showSnack('success', '즐겨찾기에 등록되었어요.', '');
+  }
+  renderModalList();
+}
+
+function addSelectedItems() {
+  if (selectedInModal.length === 0) return;
+  selectedInModal.forEach(id => { if (!addedToOrder.includes(id)) addedToOrder.push(id); });
+  showSnack('success', '주문에 추가되었어요.', '');
+  closeModal();
+}
+
+function showSnack(type, main, sub) {
+  const el = document.getElementById('snackbar');
+  document.getElementById('snackbar-icon').textContent = type === 'success' ? '✅' : '⚠️';
+  document.getElementById('snackbar-main').textContent = main;
+  document.getElementById('snackbar-sub').textContent = sub;
+  el.className = 'snackbar ' + type + ' show';
+  if (snackTimer) clearTimeout(snackTimer);
+  snackTimer = setTimeout(() => el.classList.remove('show'), 3000);
+}
+
+renderGrid();
+renderAddedItems();
+</script>
+</body>
+</html>
